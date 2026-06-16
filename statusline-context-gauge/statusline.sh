@@ -10,6 +10,11 @@
 # Install: see README.md (add a statusLine key to ~/.claude/settings.json).
 in=$(cat)
 
+# floor a value to a non-negative integer (drop any fractional part); blank or
+# non-numeric input falls back to $2. Keeps the (( )) comparisons below from
+# erroring on a float (e.g. a "29.5" percentage, or a {"red":200000.5} config).
+intify() { local v=${1%%.*}; case "$v" in ''|*[!0-9]*) v=$2 ;; esac; printf '%s' "$v"; }
+
 # One jq pass pulls every field. The read order below MUST match the emit
 # order here — they're paired positionally, so keep them in sync if you edit.
 { IFS= read -r model
@@ -26,7 +31,7 @@ in=$(cat)
   .context_window.total_input_tokens // 0,
   .context_window.context_window_size // 200000
 ' <<<"$in")
-dir=${dir##*/}; pct=${pct%.*}
+dir=${dir##*/}; pct=$(intify "$pct" 0)
 
 # filling-circle gauge: ◯ ◔ ◑ ◕ ●  (fraction of the actual window)
 if   (( pct < 10 )); then g=◯
@@ -43,13 +48,13 @@ load_cfg() {                       # pull .red/.yellow from a json file if it ex
   [ -f "$1" ] || return 0
   local r y
   { IFS= read -r r; IFS= read -r y; } < <(jq -r '.red // "", .yellow // ""' "$1" 2>/dev/null)
-  [ -n "$r" ] && red=$r
-  [ -n "$y" ] && yellow=$y
+  [ -n "$r" ] && red=$(intify "$r" "$red")
+  [ -n "$y" ] && yellow=$(intify "$y" "$yellow")
 }
 load_cfg "$HOME/.claude/ctx-gauge.json"
 [ -n "$proj" ] && load_cfg "$proj/.claude/ctx-gauge.json"
-red=${CTX_GAUGE_RED:-$red}
-yellow=${CTX_GAUGE_YELLOW:-$yellow}
+red=$(intify "${CTX_GAUGE_RED:-$red}" "$red")
+yellow=$(intify "${CTX_GAUGE_YELLOW:-$yellow}" "$yellow")
 
 if   (( inp >= red ));    then c='\033[31m'   # red:    over the comfort line
 elif (( inp >= yellow )); then c='\033[33m'   # yellow: getting heavy
