@@ -18,7 +18,7 @@ Three pieces, two hooks and one tmux config:
 | File | Wires to | Does |
 |---|---|---|
 | `stop.sh` | `Stop` + `Notification` hooks | paints the current window's status red, then emits a bell (`\a`) |
-| `prompt.sh` | `UserPromptSubmit` hook | resets the window status back to default |
+| `prompt.sh` | `UserPromptSubmit` hook | unsets the red window-status override so it reverts to your normal style |
 | `tmux.conf` | sourced from `~/.tmux.conf` | makes tmux *react* to bells from background windows |
 
 The flow: Claude **stops** (turn done) or raises a **notification** (needs
@@ -139,3 +139,9 @@ actually inside tmux) and that `~/.tmux.conf` sources the config.
   you run Claude in a plain terminal — you just lose the red, keeping the bell.
 - `stop.sh` targets `-t "$TMUX_PANE"`; tmux resolves a pane id to its window, so
   the right window reddens even with multiple panes.
+- `prompt.sh` clears the alert with `set-window-option -u` (unset the window-local
+  override) rather than `… default`. `stop.sh` set a *window-specific* style, so
+  unsetting it falls back to your global `window-status-style` — whereas forcing
+  `default` would paint a themed status bar back to terminal-default. If you don't
+  theme `window-status-style` the two are indistinguishable; this just avoids
+  stomping the setups that do.
