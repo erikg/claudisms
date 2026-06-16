@@ -8,9 +8,10 @@ phone shortcut, a cron job, or Claude's own Bash tool when you ask it in plain
 language ("clear it").
 
 ```sh
-clear-claude            # /clear the Claude pane in window 0 of the current/first session
-clear-claude -n         # dry run: print the resolved target, send nothing
-clear-claude 2          # target window index 2 instead
+clear-claude            # /clear the Claude pane (auto-detected when run inside it)
+clear-claude -n         # dry run: print the resolved target + a Claude check, send nothing
+clear-claude 2          # target window index 2 instead (pane .0)
+clear-claude -f 2       # send even if window 2 doesn't look like a Claude pane
 ```
 
 ## The trick
@@ -33,19 +34,29 @@ Swap `'/clear'` for any other slash-command and the same mechanism drives
 
 ## Why these defaults
 
-- **Session resolution** — inside tmux (`$TMUX` set, e.g. Claude's Bash tool or
-  your own pane) it targets the **current** session, so it Just Works without
-  arguments. Outside tmux (e.g. an SSH one-liner from a phone) there's no
-  "current" session, so it falls back to the **first** listed one — the common
-  single-session case. Multi-session users pass the window explicitly.
-- **`WINDOW_INDEX` default `0`, pane `.0`** — the overwhelmingly common spot for
-  the one long-lived Claude pane. If yours lives elsewhere, pass the index; the
-  pane is assumed to be `.0` of that window. *(This is the one assumption to
-  check on a fresh setup — `clear-claude -n` prints the resolved target and the
-  command running there so you can confirm before sending.)*
+- **Target resolution** — three cases, in order:
+  - **`WINDOW_INDEX` given** → `<current-or-first session>:<WINDOW_INDEX>.0`. The
+    explicit override for the external/SSH case; pane `.0` of that window is
+    assumed.
+  - **else `$TMUX_PANE` set** (run from inside the Claude pane — e.g. its own Bash
+    tool, or your own pane) → target **that exact pane**, deriving session,
+    **window** *and* pane from the pane id. This is the key default: `$TMUX_PANE`
+    pins the *whole* coordinate, so "clear it" lands on the right Claude no matter
+    which window or pane it occupies — not just window 0. (Earlier this hardcoded
+    window `0`; it only worked because Claude usually sits there.)
+  - **else** (external, no arg) → `<first session>:0.0` — the common
+    single-session, one-Claude-pane case.
 - **`-n` dry-run** — because send-keys is irreversible (you can't un-clear), the
-  dry run lets you verify the target — and that `pane_current_command` actually
-  looks like a Claude process — before committing.
+  dry run prints the resolved target *and* whether it looks like Claude, so you
+  can confirm before committing.
+- **Is-this-Claude guard (`-f` to override)** — before sending, the target's
+  `pane_current_command` is checked: Claude Code sets its process title to its
+  version (e.g. `2.1.178`), so a version string — or `node`/`claude` on older
+  builds — means Claude is there. Anything else (a bare shell, `vim`, `ssh`) is
+  almost certainly the wrong pane, so the send is **refused** unless you pass
+  `-f`/`--force`. This turns the old "eyeball the dry-run" advice into an actual
+  safety interlock, which matters most for the unattended paths (cron, SSH
+  shortcut) where nobody reads the dry run.
 - **`set -eu`** — fail loud on an unresolved session or missing pane rather than
   silently sending `/clear` into the wrong window.
 
@@ -72,11 +83,13 @@ you run a single tmux session).
 
 ```sh
 clear-claude -n
-# → clear-claude DRY-RUN: would send /clear -> mysession:0.0 (running: node)
+# → clear-claude DRY-RUN: would send /clear -> 0:0.0 (running: 2.1.178 -- looks like Claude)
 ```
 
-If the target or `running` command isn't what you expect, pass the right window
-index. Only drop `-n` once the dry run points at the right pane.
+`running` is the target's `pane_current_command`; current Claude Code reports its
+**version** there (older builds showed `node`). If the target or the Claude
+verdict isn't what you expect, pass the right window index. Only drop `-n` once
+the dry run points at the right pane.
 
 ## Requires
 

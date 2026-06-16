@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ~/bin/clear-claude [-n] [WINDOW_INDEX]
+# ~/bin/clear-claude [-n] [-f] [WINDOW_INDEX]
 #
 # Inject a literal "/clear" + Enter into a tmux-hosted Claude Code CLI pane so it
 # executes as the REAL /clear command. Works around the iOS app's flaky
@@ -9,35 +9,83 @@
 # The keys queue in the pane's pty and fire when the CLI returns to its prompt
 # (i.e. right after the current turn ends), so it's safe to invoke mid-turn.
 #
-#   -n, --dry-run    resolve + print the target, send nothing
-#   WINDOW_INDEX     tmux window index to target (default: 0); pane .0 assumed
+#   -n, --dry-run    resolve + print the target (and whether it looks like
+#                    Claude), send nothing
+#   -f, --force      send even if the target doesn't look like a Claude pane
+#   WINDOW_INDEX     tmux window index to target; pane .0 assumed. Overrides the
+#                    auto-detection below — use it for external/SSH invocations.
 #
-# Session resolution: the current session if run inside tmux (e.g. Claude's own
-# Bash tool), else the first listed session (e.g. an external SSH invocation).
+# Target resolution (in order):
+#   - WINDOW_INDEX given      -> <current-or-first session>:<WINDOW_INDEX>.0
+#   - else $TMUX_PANE set     -> the EXACT pane this runs in (e.g. Claude's own
+#                                Bash tool). Session, window AND pane are detected
+#                                from the pane id, so it's correct no matter which
+#                                window/pane Claude lives in — not just window 0.
+#   - else (external, no arg) -> <first session>:0.0
 set -eu
 
-dry=0
-case "${1:-}" in
-    -n|--dry-run) dry=1; shift ;;
-esac
-win="${1:-0}"
+dry=0; force=0
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -n|--dry-run) dry=1; shift ;;
+        -f|--force)   force=1; shift ;;
+        --)           shift; break ;;
+        -*)           echo "clear-claude: unknown option '$1'" >&2; exit 1 ;;
+        *)            break ;;
+    esac
+done
+win="${1:-}"
 
-if [ -n "${TMUX:-}" ]; then
-    sess=$(tmux display-message -p '#{session_name}')
+first_session() { tmux list-sessions -F '#{session_name}' 2>/dev/null | head -n1 || true; }
+
+if [ -n "$win" ]; then
+    # explicit window index — resolve session from the env (current) or first
+    if [ -n "${TMUX:-}" ]; then
+        sess=$(tmux display-message -p '#{session_name}')
+    else
+        sess=$(first_session)
+    fi
+    [ -n "${sess:-}" ] || { echo "clear-claude: no tmux session found" >&2; exit 1; }
+    target="${sess}:${win}.0"
+elif [ -n "${TMUX_PANE:-}" ]; then
+    # running inside a tmux pane (e.g. Claude's own Bash tool): target THIS pane
+    # exactly — detect session, window and pane from the id, so the window index
+    # is irrelevant and we hit the right Claude even if it isn't in window 0
+    target=$(tmux display-message -p -t "$TMUX_PANE" \
+                '#{session_name}:#{window_index}.#{pane_index}' 2>/dev/null || true)
+    [ -n "$target" ] || { echo "clear-claude: could not resolve \$TMUX_PANE ($TMUX_PANE)" >&2; exit 1; }
 else
-    sess=$(tmux list-sessions -F '#{session_name}' 2>/dev/null | head -n1 || true)
+    # external invocation, no window given: first session, window 0, pane 0
+    sess=$(first_session)
+    [ -n "${sess:-}" ] || { echo "clear-claude: no tmux session found" >&2; exit 1; }
+    target="${sess}:0.0"
 fi
-[ -n "${sess:-}" ] || { echo "clear-claude: no tmux session found" >&2; exit 1; }
 
-target="${sess}:${win}.0"
 tmux list-panes -t "$target" >/dev/null 2>&1 \
     || { echo "clear-claude: target pane '$target' not found" >&2; exit 1; }
 
 running=$(tmux display-message -p -t "$target" '#{pane_current_command}' 2>/dev/null || echo '?')
 
+# Does the target actually look like Claude? Claude Code sets its process title
+# to its version (e.g. "2.1.178"), so pane_current_command is a version string
+# while it runs; older/dev builds report "node" or "claude". A bare shell, vim,
+# ssh, etc. means we're almost certainly aimed at the wrong pane.
+looks_claude=0
+case "$running" in
+    node|claude|claude-code) looks_claude=1 ;;
+    [0-9]*.[0-9]*.[0-9]*)    looks_claude=1 ;;   # version-string process title
+esac
+
 if [ "$dry" -eq 1 ]; then
-    echo "clear-claude DRY-RUN: would send /clear -> $target (running: $running)"
+    if [ "$looks_claude" -eq 1 ]; then verdict="looks like Claude"; else verdict="does NOT look like Claude"; fi
+    echo "clear-claude DRY-RUN: would send /clear -> $target (running: $running -- $verdict)"
     exit 0
+fi
+
+if [ "$looks_claude" -eq 0 ] && [ "$force" -eq 0 ]; then
+    echo "clear-claude: $target is running '$running', which doesn't look like Claude." >&2
+    echo "             Pass the right WINDOW_INDEX, or -f/--force to send anyway." >&2
+    exit 1
 fi
 
 tmux send-keys -t "$target" '/clear' Enter
