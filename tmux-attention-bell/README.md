@@ -46,11 +46,36 @@ This looks redundant; it isn't. They travel different distances:
 |---|---|
 | `monitor-bell on` | watch for bells in **background** windows at all (off by default) |
 | `bell-action other` | alert only for bells in windows *other* than the focused one — don't pester you about the window you're already staring at |
-| `visual-bell off` | we want the window-flag reaction, not a whole-screen flash |
 | `window-status-bell-style 'bg=red,fg=white'` | so a bell from a nested Claude paints the outer window red too — the local red cue *cascades* all the way up |
 
 Net effect: a Claude on a box two SSH hops away, running inside its own tmux,
 can turn a window red on your laptop's status bar. That's the whole trick.
+
+### Emit vs eat — per machine
+
+The one setting that should differ between machines is `visual-bell`, because it
+decides what tmux does with the `^G` (BEL, `0x07`) byte itself:
+
+- **emit** (`visual-bell off`) — pass the bell *up* to the enclosing
+  terminal/tmux. An **inner / remote** session wants this: it's what makes the
+  bell escape outward and reach the session wrapping it.
+- **eat** (`visual-bell on`) — react locally (the window still reddens via
+  `monitor-bell`) but **don't** forward the bell. The **outermost** session — the
+  one you actually watch — usually wants this, so your Mac's terminal doesn't
+  beep or bounce the dock on every turn.
+
+Rather than ship two configs, `tmux.conf` defaults to **emit** and flips to
+**eat** when it finds a marker file. So you tell each machine what to be:
+
+```sh
+touch ~/.claude/tmux-eat-bell     # this machine eats   (e.g. the Mac you watch)
+rm -f ~/.claude/tmux-eat-bell     # this machine emits  (e.g. the Linux box Claude runs on)
+tmux source-file ~/.tmux.conf     # re-source to apply
+```
+
+The check is a `if-shell '[ -e "$HOME/.claude/tmux-eat-bell" ]'` at the bottom of
+`tmux.conf` — inner box stays emit (no marker), outer Mac eats (marker present),
+and red still flags on both.
 
 ## Why these specific hook events
 
