@@ -21,6 +21,12 @@ what they are.
 | [`tmux-attention-bell/`](tmux-attention-bell/) | Flags the tmux window red and rings a bell when Claude finishes a turn or needs permission; clears when you reply. Bell cascades through nested tmux/SSH so a remote agent can light up your local status bar. |
 | [`clear-claude/`](clear-claude/) | Fire a real `/clear` (or any slash-command) at a tmux-hosted Claude session from outside the conversation via `tmux send-keys` — for the iOS app, phone shortcuts, or plain-language "clear it". |
 
+## Contributing
+
+Got a small, portable Claude Code trick? See [CONTRIBUTING.md](CONTRIBUTING.md) —
+one self-contained gadget per directory, a README that covers what / how / *why*,
+and a row in the Contents above.
+
 ## License
 
 [BSD 3-Clause](LICENSE) © 2026 Erik Greenwald. Take what's useful.
