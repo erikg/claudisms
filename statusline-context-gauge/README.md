@@ -29,6 +29,12 @@ of the ceiling. The **circle** still shows true window fill, so you get both
 readings at a glance: how full the window technically is (circle) and whether
 you've crossed your own discipline line (color).
 
+> *Footnote:* circle and color are two scalings of the **same** number —
+> `used_percentage ≈ total_input_tokens / context_window_size`. The circle reads
+> it *relative* to the window; the color reads it *absolute*. They're not
+> independent measurements, but on a wide window they diverge usefully: at 200k
+> on a 1M window you get a calm `◔` and an alarmed red at once.
+
 ## What the status line gives you
 
 Claude Code runs your `statusLine` command and pipes a JSON object on stdin;
@@ -64,10 +70,16 @@ cp statusline.sh ~/.claude/statusline.sh
 chmod +x ~/.claude/statusline.sh
 ```
 
+(Edits to the *installed* copy show on the next render; if you'd rather hack on
+the in-repo copy, `ln -s` it instead of `cp` so there's one file, not two.)
+
 Add the `statusLine` key to `~/.claude/settings.json` (leaves everything else
 intact):
 
 ```sh
+# On a fresh machine ~/.claude/settings.json may not exist yet — jq errors on a
+# missing file, so seed an empty object first (this is the "next machine" case).
+[ -f ~/.claude/settings.json ] || printf '{}\n' > ~/.claude/settings.json
 tmp=$(mktemp)
 jq '.statusLine = {"type":"command","command":"~/.claude/statusline.sh"}' \
    ~/.claude/settings.json >"$tmp" && mv "$tmp" ~/.claude/settings.json
@@ -79,7 +91,12 @@ Or by hand:
 "statusLine": { "type": "command", "command": "~/.claude/statusline.sh" }
 ```
 
-It shows on the next render — no restart needed. Requires `jq`.
+It shows on the next render — no restart needed.
+
+**Requires** `bash` (≥3.2, so stock macOS is fine) and `jq`. The shebang runs it
+under bash regardless of your login shell, so zsh-on-macOS is irrelevant. On
+Windows it runs under WSL or Git Bash (point `command` at `bash …`) — not native
+cmd/PowerShell — and the gauge glyphs need a UTF-8 terminal.
 
 ## Smoke test
 
@@ -91,8 +108,31 @@ printf '%s' '{"model":{"display_name":"Opus 4.8"},"workspace":{"current_dir":"/h
 
 ## Tuning
 
-- **Color thresholds** — the two numbers in the `inp >=` lines (default red
-  200k / yellow 100k). Lower them to nag earlier.
+- **Color thresholds** — the red / yellow token counts (default 200k / 100k).
+  Lower them to nag earlier. Set them without touching the script via a small
+  JSON file:
+
+  ```json
+  { "red": 200000, "yellow": 100000 }
+  ```
+
+  Either key is optional. Drop it at `~/.claude/ctx-gauge.json` for a global
+  baseline, or at `<project>/.claude/ctx-gauge.json` to tighten the line for one
+  noisy repo. Claude Code never hands your `settings.json` to the status line —
+  it only pipes the session JSON — so the gauge reads this dedicated file itself,
+  locating the project copy from the `workspace.project_dir` field in that JSON.
+
+  Resolution runs lowest → highest precedence:
+
+  | Source | Use |
+  |---|---|
+  | built-in `red=`/`yellow=` lines | the baked-in defaults |
+  | `~/.claude/ctx-gauge.json` | your global comfort line |
+  | `<project>/.claude/ctx-gauge.json` | per-repo override |
+  | `CTX_GAUGE_RED` / `CTX_GAUGE_YELLOW` env | one-off, wins over all |
+
+  A missing or malformed file is ignored silently and the next-lower source
+  stands — the gauge never breaks over bad config.
 - **Circle scale** — currently fills by % of the true window, so on a 1M window
   it mostly reads ◯/◔. To make the circle track your *own* scale instead (fill
   up by ~200k), threshold the gauge on `inp` rather than `pct`.
