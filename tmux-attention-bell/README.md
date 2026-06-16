@@ -74,14 +74,16 @@ Wire the hooks into `~/.claude/settings.json` (merges into any existing `hooks`)
 
 ```sh
 [ -f ~/.claude/settings.json ] || printf '{}\n' > ~/.claude/settings.json
-tmp=$(mktemp)
-jq '.hooks.Stop              += [{"matcher":"","hooks":[{"type":"command","command":"/home/erik/.claude/hooks/stop.sh"}]}]
-  | .hooks.Notification      += [{"matcher":"","hooks":[{"type":"command","command":"/home/erik/.claude/hooks/stop.sh"}]}]
-  | .hooks.UserPromptSubmit  += [{"matcher":"","hooks":[{"type":"command","command":"/home/erik/.claude/hooks/prompt.sh"}]}]' \
+h="$HOME/.claude/hooks"; tmp=$(mktemp)
+jq --arg stop "$h/stop.sh" --arg prompt "$h/prompt.sh" \
+   '.hooks.Stop             += [{"matcher":"","hooks":[{"type":"command","command":$stop}]}]
+  | .hooks.Notification     += [{"matcher":"","hooks":[{"type":"command","command":$stop}]}]
+  | .hooks.UserPromptSubmit += [{"matcher":"","hooks":[{"type":"command","command":$prompt}]}]' \
   ~/.claude/settings.json >"$tmp" && mv "$tmp" ~/.claude/settings.json
 ```
 
-(Hook commands need an absolute path — adjust `/home/erik` to your `$HOME`.)
+(Hook commands need an absolute path, which is why `$HOME` is expanded here
+rather than left as a literal `~`.)
 
 Source the tmux config and reload — do this in the **outermost** tmux too (the
 one whose status bar you actually watch), since that's where the cascade lands:
