@@ -11,6 +11,14 @@ nested tmux sessions and SSH hops.
  0:edit  1:build  2:claude*    ← Claude stops → window 2 goes red + bell
 ```
 
+> **Prerequisite: name your Claude window.** This gadget flags a window but
+> doesn't name it — the `2:claude` above is assumed, not provided. The red cue is
+> only legible if the window has a meaningful name telling you *which* one wants
+> you (vs. a bare `2:`). Name it however you like: by hand (`Ctrl-b ,`), a tmux
+> binding, or a shell wrapper that runs `tmux rename-window claude` before
+> launching `claude` (and restores `automatic-rename on` after). Any of these
+> works; the gadget only cares that the name exists.
+
 ## How it works
 
 Three pieces, two hooks and one tmux config:
