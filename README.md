@@ -11,3 +11,4 @@ what they are.
 | Entry | What it is |
 |---|---|
 | [`statusline-context-gauge/`](statusline-context-gauge/) | Live context-window fill gauge for the Claude Code status line (the desktop app's filling-circle, in the terminal). Color warns on *absolute* token load, not just % of window. |
+| [`tmux-attention-bell/`](tmux-attention-bell/) | Flags the tmux window red and rings a bell when Claude finishes a turn or needs permission; clears when you reply. Bell cascades through nested tmux/SSH so a remote agent can light up your local status bar. |
