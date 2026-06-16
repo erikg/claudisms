@@ -12,10 +12,12 @@ grab-bag of self-contained scripts plus prose.
 ## Structure convention
 
 Each gadget lives in its own subdirectory containing the script(s) **and** a
-`README.md`. The top-level `README.md` keeps a Contents table with one row per
-gadget — when you add a gadget, add its row there. Each gadget's README is
-expected to explain three things: what it does, how to wire it in, and *why* the
-defaults are what they are (the "why" is treated as load-bearing, not optional).
+`README.md`. The top-level `README.md` groups gadgets into logical sections (e.g.
+"Status line", "tmux gadgets"), one table per section — when you add a gadget,
+add its row under the section it fits, or start a new section if none fits. Each
+gadget's README is expected to explain three things: what it does, how to wire it
+in, and *why* the defaults are what they are (the "why" is treated as
+load-bearing, not optional).
 
 ## Conventions that matter here
 
