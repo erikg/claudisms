@@ -1,0 +1,14 @@
+# Editor / OS cruft
+*~
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Local-only notes, not for sharing
+*.local.md
+
+# Scratch / test artifacts
+*.tmp

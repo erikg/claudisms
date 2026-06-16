@@ -1,5 +1,7 @@
 # claudisms
 
+[![shellcheck](https://github.com/erikg/claudisms/actions/workflows/shellcheck.yml/badge.svg)](https://github.com/erikg/claudisms/actions/workflows/shellcheck.yml)
+
 Small, portable bits of Claude Code tooling and hard-won notes — the kind of
 thing that otherwise lives buried in `~/.claude/` and gets lost on the next
 machine. Each subdirectory is one self-contained gadget: the script(s) plus a
