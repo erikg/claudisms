@@ -9,6 +9,16 @@ kind of thing that otherwise lives buried in `~/.claude/` and gets lost on the
 next machine. There is no build, no test suite, and no package manifest; it is a
 grab-bag of self-contained scripts plus prose.
 
+## Installing the gadgets
+
+**When the user asks to install (or update) the gadgets — including plain-language
+"install these" on a fresh machine — follow [INSTALL.md](INSTALL.md) exactly:
+run its fenced `bash` blocks in order. Do not explore the gadget directories or
+improvise install commands first.** `INSTALL.md` is the deterministic, idempotent
+recipe (re-running it *is* the update path); the per-gadget READMEs explain the
+*why* but `INSTALL.md` is the procedure. If you change how a gadget wires in,
+update `INSTALL.md` and the gadget's README together.
+
 ## Structure convention
 
 Each gadget lives in its own subdirectory containing the script(s) **and** a

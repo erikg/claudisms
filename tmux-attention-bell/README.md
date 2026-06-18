@@ -103,16 +103,18 @@ chmod +x ~/.claude/hooks/stop.sh ~/.claude/hooks/prompt.sh
 cp tmux.conf ~/.claude/tmux.conf
 ```
 
-Wire the hooks into `~/.claude/settings.json` (merges into any existing `hooks`):
+Wire the hooks into `~/.claude/settings.json` (merges into any existing `hooks`).
+This is **idempotent** — any prior entry pointing at our scripts is dropped before
+re-adding, so re-running to update never duplicates the hooks:
 
 ```sh
 [ -f ~/.claude/settings.json ] || printf '{}\n' > ~/.claude/settings.json
 h="$HOME/.claude/hooks"; tmp=$(mktemp)
-jq --arg stop "$h/stop.sh" --arg prompt "$h/prompt.sh" \
-   '.hooks.Stop             += [{"matcher":"","hooks":[{"type":"command","command":$stop}]}]
-  | .hooks.Notification     += [{"matcher":"","hooks":[{"type":"command","command":$stop}]}]
-  | .hooks.UserPromptSubmit += [{"matcher":"","hooks":[{"type":"command","command":$prompt}]}]' \
-  ~/.claude/settings.json >"$tmp" && mv "$tmp" ~/.claude/settings.json
+jq --arg stop "$h/stop.sh" --arg prompt "$h/prompt.sh" '
+    .hooks.Stop             = ((.hooks.Stop             // []) | map(select(.hooks[0].command != $stop)))   + [{"matcher":"","hooks":[{"type":"command","command":$stop}]}]
+  | .hooks.Notification     = ((.hooks.Notification     // []) | map(select(.hooks[0].command != $stop)))   + [{"matcher":"","hooks":[{"type":"command","command":$stop}]}]
+  | .hooks.UserPromptSubmit = ((.hooks.UserPromptSubmit // []) | map(select(.hooks[0].command != $prompt))) + [{"matcher":"","hooks":[{"type":"command","command":$prompt}]}]
+  ' ~/.claude/settings.json >"$tmp" && mv "$tmp" ~/.claude/settings.json
 ```
 
 (Hook commands need an absolute path, which is why `$HOME` is expanded here
@@ -122,7 +124,8 @@ Source the tmux config and reload — do this in the **outermost** tmux too (the
 one whose status bar you actually watch), since that's where the cascade lands:
 
 ```sh
-echo 'source-file ~/.claude/tmux.conf' >> ~/.tmux.conf
+grep -qF 'source-file ~/.claude/tmux.conf' ~/.tmux.conf 2>/dev/null \
+  || echo 'source-file ~/.claude/tmux.conf' >> ~/.tmux.conf
 tmux source-file ~/.tmux.conf
 ```
 

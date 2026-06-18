@@ -8,6 +8,13 @@ machine. Each subdirectory is one self-contained gadget: the script(s) plus a
 README explaining what it does, how to wire it in, and *why* the defaults are
 what they are.
 
+## Install
+
+See **[INSTALL.md](INSTALL.md)** for a deterministic, idempotent recipe that
+installs (or updates) every gadget at once — written so a human or Claude Code
+can run it verbatim. Each gadget's own README also has a standalone `Install`
+section.
+
 ## Contents
 
 ### Status line
